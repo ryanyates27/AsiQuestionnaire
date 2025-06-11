@@ -1,0 +1,48 @@
+{
+  "name": "asi-questionnaire-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "package": "electron-builder",
+    "postinstall": "npx @electron/rebuild --force --parallel"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "fuse.js": "^6.6.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "@eslint/js": "^9.22.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^35.2.1",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "vite": "^6.3.1",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.ASI.questionnaireapp",
+    "productName": "QuestionnaireApp",
+    "files": [
+      "dist",
+      "electron"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    }
+  }
+}
