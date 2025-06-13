@@ -6,7 +6,7 @@ export default function MainPage({ onNavigate }) {
     { label: 'Check for a Question', key: 'search' },
     { label: 'System Specs',        key: 'systemSpecs' },
     { label: 'Upload Questions',    key: 'upload' },
-    { label: "Site DB's",           key: 'siteDBs' },
+    { label: "Questionnaire Archive",           key: 'siteDBs' },
     { label: 'Manage Questions',    key: 'manage' },
     { label: 'Documentation',       key: 'documentation' }
   ];

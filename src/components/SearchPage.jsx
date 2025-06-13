@@ -154,7 +154,7 @@ export default function SearchPage({ onBack }) {
               color: '#000',
               paddingTop: '0',
               paddingLeft: '1rem',
-              paddingRight: '0',
+              paddingRight: '0.5rem',
               paddingBottom: '1rem',
               borderRadius: 8,
               maxWidth: '80%',

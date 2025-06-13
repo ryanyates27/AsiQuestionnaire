@@ -8,15 +8,11 @@ export default function ManagePage({ onBack }) {
   const [editingId, setEditing] = useState(null);
   const [editVals, setEditVals] = useState({});
 
-  // Fetch questions whenever query changes
+  // Fetch (with fuzzy) on query change
   useEffect(() => {
     (async () => {
-      try {
-        const data = await window.api.getQuestions(query);
-        setResults(data);
-      } catch (err) {
-        console.error('Error loading questions:', err);
-      }
+      const data = await window.api.getQuestions(query);
+      setResults(data);
     })();
   }, [query]);
 
@@ -39,53 +35,55 @@ export default function ManagePage({ onBack }) {
     setEditVals({});
   };
   const saveEdit = async () => {
-    try {
-      await window.api.editQuestion(editVals);
-      cancelEdit();
-      // re-fetch with current query
-      const data = await window.api.getQuestions(query);
-      setResults(data);
-    } catch (err) {
-      console.error('Save failed:', err);
-      alert('Failed to save changes');
-    }
+    await window.api.editQuestion(editVals);
+    cancelEdit();
+    const data = await window.api.getQuestions(query);
+    setResults(data);
   };
   const handleDelete = async id => {
     if (!confirm('Delete this question?')) return;
-    try {
-      await window.api.removeQuestion(id);
-      const data = await window.api.getQuestions(query);
-      setResults(data);
-    } catch (err) {
-      console.error('Delete failed:', err);
-      alert('Failed to delete question');
-    }
+    await window.api.removeQuestion(id);
+    const data = await window.api.getQuestions(query);
+    setResults(data);
   };
 
   return (
     <PageWrapper onBack={onBack} title="Manage Questions">
-      {/* Fuzzy Search Bar */}
-      <div style={{ marginBottom: '1rem' }}>
+      {/* Fuzzy Search */}
+      <div style={{ marginBottom: 16 }}>
         <input
           type="text"
           placeholder="Filter questions..."
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{
-            width: '100%',
-            padding: '8px',
-            fontSize: '16px',
+            width: '98%',
+            padding: 8,
+            fontSize: 16,
             border: '1px solid #ccc',
-            borderRadius: '4px'
+            borderRadius: 4
           }}
         />
       </div>
 
-      {/* Questions Table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          tableLayout: 'fixed'
+        }}
+      >
+        {/* 45/45/5/7 split */}
+        <colgroup>
+          <col style={{ width: '45%' }} />
+          <col style={{ width: '43%' }} />
+          <col style={{ width: '5%' }} />
+          <col style={{ width: '7%' }} />
+        </colgroup>
+
         {Object.entries(grouped).map(([tag, subs]) => (
           <tbody key={tag}>
-            {/* Main type header */}
+            {/* Main tag row */}
             <tr>
               <td
                 colSpan={4}
@@ -100,9 +98,9 @@ export default function ManagePage({ onBack }) {
               </td>
             </tr>
 
-            {/* Subtype sections */}
             {Object.entries(subs).map(([sub, items]) => (
               <React.Fragment key={sub}>
+                {/* Subtag header row */}
                 <tr>
                   <td
                     style={{
@@ -113,15 +111,22 @@ export default function ManagePage({ onBack }) {
                   >
                     {sub}
                   </td>
+                  {/* span the other three columns */}
                   <td colSpan={3} style={{ backgroundColor: '#ccc', padding: 6 }} />
                 </tr>
 
+                {/* Item rows */}
                 {items.map(item => (
                   <tr key={item.id}>
                     <td style={{ border: '1px solid #000', padding: 6 }}>
                       {editingId === item.id ? (
                         <textarea
-                          style={{ width: '100%', minHeight: '60px' }}
+                          style={{
+                            width: '100%',
+                            minHeight: 60,
+                            boxSizing: 'border-box',
+                            resize: 'vertical'
+                          }}
                           value={editVals.question}
                           onChange={e =>
                             setEditVals(prev => ({ ...prev, question: e.target.value }))
@@ -134,7 +139,12 @@ export default function ManagePage({ onBack }) {
                     <td style={{ border: '1px solid #000', padding: 6 }}>
                       {editingId === item.id ? (
                         <textarea
-                          style={{ width: '100%', minHeight: '60px' }}
+                          style={{
+                            width: '100%',
+                            minHeight: 60,
+                            boxSizing: 'border-box',
+                            resize: 'vertical'
+                          }}
                           value={editVals.answer}
                           onChange={e =>
                             setEditVals(prev => ({ ...prev, answer: e.target.value }))
@@ -146,35 +156,24 @@ export default function ManagePage({ onBack }) {
                         </div>
                       )}
                     </td>
-                    <td
-                      style={{
-                        border: '1px solid #000',
-                        padding: 6,
-                        textAlign: 'center'
-                      }}
-                    >
+                    <td style={{ border: '1px solid #000', padding: 6, textAlign: 'center' }}>
                       {editingId === item.id ? (
-                        <>
-                          <button onClick={saveEdit}>Save</button>{' '}
-                          <button onClick={cancelEdit}>Cancel</button>
-                        </>
+                        <button onClick={saveEdit}>Save</button>
                       ) : (
                         <button onClick={() => startEdit(item)}>Edit</button>
                       )}
                     </td>
-                    <td
-                      style={{
-                        border: '1px solid #000',
-                        padding: 6,
-                        textAlign: 'center'
-                      }}
-                    >
-                      <button
-                        style={{ color: 'crimson' }}
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        Delete
-                      </button>
+                    <td style={{ border: '1px solid #000', padding: 6, textAlign: 'center' }}>
+                      {editingId === item.id ? (
+                        <button onClick={cancelEdit}>Cancel</button>
+                      ) : (
+                        <button
+                          style={{ color: 'crimson' }}
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
