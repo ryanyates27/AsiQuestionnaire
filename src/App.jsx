@@ -4,6 +4,7 @@ import SearchPage from './components/SearchPage';
 import UploadPage from './components/UploadPage';
 import ManagePage from './components/ManagePage';
 import SpecsPage from './components/SpecsPage';
+import QuestionnaireArchivePage from './components/QuestionnaireArchPage';
 // Import or create stubs for your other pages:
 const SystemSpecsPage     = () => <h2 style={{ padding:'2rem' }}>System Specs (TBD)</h2>;
 const ServerSpecsPage     = () => <h2 style={{ padding:'2rem' }}>Server Specs (TBD)</h2>;
@@ -32,7 +33,9 @@ export default function App() {
         <SpecsPage onBack={() => setView('main')} />
       )}
 
-      {view === 'siteDBs' &&       <SiteDBsPage />}
+      {view === 'siteDBs' && (
+        <QuestionnaireArchivePage onBack={() => setView('main')} />
+      )}
       {view === 'documentation' && <DocumentationPage />}
     </>
   );
