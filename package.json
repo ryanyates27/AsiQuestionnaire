@@ -16,7 +16,8 @@
     "better-sqlite3": "^11.10.0",
     "fuse.js": "^6.6.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",

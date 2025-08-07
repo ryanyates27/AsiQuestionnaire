@@ -6,7 +6,7 @@ const subtypeOptions = {
   Database: ['Logs', 'Transfers', 'Backups', 'Fill Later'],
   Business: ['Assessment', 'Employee', 'Procedures', 'Security'],
   Software: ['Patches', 'Logs', 'Access', 'Connectivity'],
-  System: ['Security', 'Design', 'Logs', 'Users'],
+  System:   ['Security', 'Design', 'Logs', 'Users'],
 };
 
 export default function UploadPage({ onBack }) {
@@ -20,30 +20,30 @@ export default function UploadPage({ onBack }) {
   });
   const [siteLock, setSiteLock] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-  const [questions, setQuestions] = useState([]);
+
+  const [sessionUploads, setSessionUploads] = useState([]);
 
   const questionRef = useRef(null);
   const answerRef   = useRef(null);
 
+  // Load from main process memory once
   useEffect(() => {
     (async () => {
       try {
-        const data = await window.api.getQuestions('');
-        setQuestions(data);
-      } catch (err) {
-        console.error('Error loading questions:', err);
+        const list = await window.api.getSessionUploads();
+        if (Array.isArray(list)) setSessionUploads(list);
+      } catch (e) {
+        console.error('Failed to load session uploads', e);
       }
     })();
   }, []);
 
-  // Auto-resize helper
+  // Resize helpers
   const autoResize = el => {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   };
-
-  // Whenever question or answer changes, resize
   useEffect(() => { autoResize(questionRef.current); }, [form.question]);
   useEffect(() => { autoResize(answerRef.current);   }, [form.answer]);
 
@@ -57,19 +57,26 @@ export default function UploadPage({ onBack }) {
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      const created = await window.api.addQuestion({
-        siteName:      form.siteName,
-        tag:           form.type,
-        subtag:        form.subtype,
-        question:      form.question,
-        answer:        form.answer,
+      const payload = {
+        siteName:       form.siteName,
+        tag:            form.type,
+        subtag:         form.subtype,
+        question:       form.question,
+        answer:         form.answer,
         additionalInfo: form.additionalInfo
-      });
+      };
+
+      const created = await window.api.addQuestion(payload);
       setSuccessMsg(`✅ Question #${created.id} saved!`);
 
-      const updated = await window.api.getQuestions('');
-      setQuestions(updated);
+      const newRow = { id: created.id, ...payload };
 
+      // Update local state
+      setSessionUploads(prev => [...prev, newRow]);
+      // Persist to main memory
+      await window.api.addSessionUpload(newRow);
+
+      // Reset form (respect site lock)
       setForm({
         siteName:      siteLock ? form.siteName : '',
         type:          'Database',
@@ -212,7 +219,7 @@ export default function UploadPage({ onBack }) {
               />
             </div>
 
-            {/* Additional Information */}
+            {/* Additional Info */}
             <div>
               <label style={{ display: 'block', marginBottom: 4 }}><strong>Additional Information:</strong></label>
               <textarea
@@ -239,7 +246,7 @@ export default function UploadPage({ onBack }) {
         </form>
       </div>
 
-      {/* Current List */}
+      {/* Current List (session only) */}
       <div style={{
         marginTop: 20,
         backgroundColor: '#fff',
@@ -248,22 +255,26 @@ export default function UploadPage({ onBack }) {
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
         <h3>Current List</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#ddd' }}>
-              <th style={{ border: '1px solid #ccc', padding: 8 }}>Question</th>
-              <th style={{ border: '1px solid #ccc', padding: 8 }}>Answer</th>
-            </tr>
-          </thead>
-          <tbody>
-            {questions.map(q => (
-              <tr key={q.id}>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{q.question}</td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{q.answer}</td>
+        {sessionUploads.length === 0 ? (
+          <div style={{ color: '#666', fontStyle: 'italic' }}>No questions uploaded this session.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#ddd' }}>
+                <th style={{ border: '1px solid #ccc', padding: 8 }}>Question</th>
+                <th style={{ border: '1px solid #ccc', padding: 8 }}>Answer</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sessionUploads.map(q => (
+                <tr key={q.id}>
+                  <td style={{ border: '1px solid #ccc', padding: 8 }}>{q.question}</td>
+                  <td style={{ border: '1px solid #ccc', padding: 8 }}>{q.answer}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </PageWrapper>
   );
