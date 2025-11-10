@@ -20,11 +20,14 @@ export default function UploadPage({ onBack }) {
   });
   const [siteLock, setSiteLock] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg]     = useState('');
+  const [saving, setSaving]         = useState(false); 
 
   const [sessionUploads, setSessionUploads] = useState([]);
 
   const questionRef = useRef(null);
   const answerRef   = useRef(null);
+  const infoRef     = useRef(null);                   
 
   // Load from main process memory once
   useEffect(() => {
@@ -46,6 +49,7 @@ export default function UploadPage({ onBack }) {
   };
   useEffect(() => { autoResize(questionRef.current); }, [form.question]);
   useEffect(() => { autoResize(answerRef.current);   }, [form.answer]);
+  useEffect(() => { autoResize(infoRef.current);     }, [form.additionalInfo]); 
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -54,8 +58,10 @@ export default function UploadPage({ onBack }) {
     setForm(prev => ({ ...prev, type: newType, subtype: '' }));
   };
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;         
+    setSaving(true);            
     try {
       const payload = {
         siteName:       form.siteName,
@@ -68,33 +74,38 @@ export default function UploadPage({ onBack }) {
 
       const created = await window.api.addQuestion(payload);
       setSuccessMsg(`✅ Question #${created.id} saved!`);
+      setErrorMsg(''); // CHANGED: clear any prior error
 
       const newRow = { id: created.id, ...payload };
 
-      // Update local state
+      // Update local state + persist
       setSessionUploads(prev => [...prev, newRow]);
-      // Persist to main memory
       await window.api.addSessionUpload(newRow);
 
       // Reset form (respect site lock)
       setForm({
-        siteName:      siteLock ? form.siteName : '',
-        type:          'Database',
-        subtype:       '',
-        question:      '',
-        answer:        '',
+        siteName:       siteLock ? form.siteName : '',
+        type:           'Database',
+        subtype:        '',
+        question:       '',
+        answer:         '',
         additionalInfo: ''
       });
 
+      // Auto-clear success after a bit
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error('Save failed:', err);
-      alert('Failed to save question');
+      setErrorMsg('Failed to save question'); 
+      setTimeout(() => setErrorMsg(''), 4000);
+    } finally {
+      setSaving(false);         
     }
   };
 
   return (
     <PageWrapper onBack={onBack} title="Upload Questions">
+      {/* Inline success/error banners (non-blocking) */}
       {successMsg && (
         <div style={{
           backgroundColor: '#e0ffe0',
@@ -104,6 +115,17 @@ export default function UploadPage({ onBack }) {
           borderRadius: 4
         }}>
           {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div style={{
+          background:'#ffecec',
+          border:'1px solid #f3c2c2',
+          padding:'8px 12px',
+          borderRadius:6,
+          marginBottom:12
+        }}>
+          {errorMsg}
         </div>
       )}
 
@@ -223,25 +245,34 @@ export default function UploadPage({ onBack }) {
             <div>
               <label style={{ display: 'block', marginBottom: 4 }}><strong>Additional Information:</strong></label>
               <textarea
+                ref={infoRef}                                         
                 value={form.additionalInfo}
                 onChange={e => handleChange('additionalInfo', e.target.value)}
-                style={{ width: '99%', height: 200, padding: 8 }}
+                style={{
+                  width: '99%',
+                  minHeight: 120,                                     
+                  padding: 8,
+                  overflow: 'hidden',
+                  resize: 'none',                                     
+                  boxSizing: 'border-box'
+                }}
               />
             </div>
           </div>
 
           <button
             type="submit"
+            disabled={saving}                                         
             style={{
-              backgroundColor: '#4caf50',
+              backgroundColor: saving ? '#8abf8d' : '#4caf50',       
               color: '#fff',
               padding: '10px 20px',
               border: 'none',
               borderRadius: 4,
-              cursor: 'pointer'
+              cursor: saving ? 'not-allowed' : 'pointer'             
             }}
           >
-            Submit Question
+            {saving ? 'Saving…' : 'Submit Question'}                  
           </button>
         </form>
       </div>
@@ -256,7 +287,9 @@ export default function UploadPage({ onBack }) {
       }}>
         <h3>Current List</h3>
         {sessionUploads.length === 0 ? (
-          <div style={{ color: '#666', fontStyle: 'italic' }}>No questions uploaded this session.</div>
+          <div style={{ color: '#666', fontStyle: 'italic' }}>
+            No questions uploaded this session.
+          </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>

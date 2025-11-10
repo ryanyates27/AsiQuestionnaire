@@ -1,33 +1,96 @@
 // src/components/MainPage.jsx
 import React, { useState, useEffect } from 'react';
-import { FiSettings } from 'react-icons/fi';
+import { FiRefreshCw } from 'react-icons/fi';
 
 export default function MainPage({ onNavigate, currentUser }) {
   const tiles = [
-    { label: 'Check for a Question', key: 'search' },
-    { label: 'System Specs',        key: 'systemSpecs' },
-    { label: 'Upload Questions',    key: 'upload' },
-    { label: 'Questionnaire Archive', key: 'siteDBs' },
-    ...(currentUser.role === 'admin'
-      ? [{ label: 'Manage Questions', key: 'manage' }]
-      : []),
-    { label: 'Documentation',       key: 'documentation' }
+    { label: 'Check for a Question',   key: 'search' },
+    { label: 'System Specs',           key: 'systemSpecs' },
+    { label: 'Upload Questions',       key: 'upload' },
+    { label: 'Questionnaire Archive',  key: 'siteDBs' },
+    ...(currentUser.role === 'admin' ? [{ label: 'Manage Questions', key: 'manage' }] : []),
   ];
 
-  // Settings modal state
-  const [showSettings, setShowSettings] = useState(false);
-  const [apiEndpoint, setApiEndpoint]   = useState('');
+  // Config (kept if other code reads it)
+  const [apiEndpoint, setApiEndpoint] = useState('');
 
-  // Load existing config on mount
+  // Sync UI
+  const [syncing, setSyncing]     = useState(false); // CHANGED
+  const [syncMsg, setSyncMsg]     = useState('');    // CHANGED
+  const [syncState, setSyncState] = useState(null);  // CHANGED
+  const offline = (syncState?.phase === 'offline');  // CHANGED
+
+  // Toast (non-blocking banner)
+  const [toast, setToast] = useState('');            // ADDED
+  const showToast = (msg, ms = 3000) => {            // ADDED
+    setToast(msg);
+    if (ms) setTimeout(() => setToast(''), ms);
+  };
+
   useEffect(() => {
-    window.api.getConfig().then(cfg => {
-      setApiEndpoint(cfg.apiEndpoint);
-    });
+    if (window.api?.getConfig) {
+      window.api.getConfig().then(cfg => {
+        if (cfg?.apiEndpoint) setApiEndpoint(cfg.apiEndpoint);
+      }).catch(() => {});
+    }
   }, []);
 
-  const saveSettings = async () => {
-    await window.api.setConfig({ apiEndpoint });
-    setShowSettings(false);
+  // Subscribe to sync state
+  useEffect(() => {
+    let unsub = () => {};
+    (async () => {
+      try {
+        const initial = await window.api?.sync?.getState?.();
+        if (initial) setSyncState(initial);
+      } catch {}
+      if (window.api?.sync?.onState) {
+        unsub = window.api.sync.onState((state) => setSyncState(state));
+      }
+    })();
+    return () => unsub?.();
+  }, []);
+
+  // Manual Sync (non-blocking)
+  const runManualSync = async () => {
+    if (syncing) return; // CHANGED: ignore double-clicks
+
+    if (offline) {
+      // CHANGED: replace alert with toast
+      showToast('You are offline. Connect to the network to sync.');
+      return;
+    }
+
+    setSyncing(true);
+    setSyncMsg('Syncing from server…');
+
+    try {
+      if (window.api?.sync?.pull) {
+        await window.api.sync.pull();
+      } else if (window.api?.syncNow) {
+        await window.api.syncNow({ silent: false });
+      } else if (window.api?.runInitialSync) {
+        await window.api.runInitialSync({ silent: false });
+      } else if (window.api?.invoke) {
+        await window.api.invoke('sync.pull');
+      } else {
+        console.warn('[MainPage] No sync bridge exposed on window.api.');
+        // CHANGED: toast instead of alert
+        showToast('Sync not available: missing IPC bridge. Ask IT to expose sync.pull.', 5000);
+        setSyncMsg(''); // CHANGED
+        return;
+      }
+
+      setSyncMsg('Sync complete.');
+      setTimeout(() => setSyncMsg(''), 1500);
+    } catch (e) {
+      console.error('[MainPage] Manual sync failed:', e);
+      setSyncMsg('Sync failed.');
+      setTimeout(() => setSyncMsg(''), 2500);
+      // CHANGED: toast instead of alert
+      showToast('Sync failed. Check console for details.', 4000);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
@@ -45,29 +108,48 @@ export default function MainPage({ onNavigate, currentUser }) {
       boxSizing: 'border-box',
     }}>
       {/* ASI Logo */}
-      <img
-        src="logo.png"
-        alt="Applied Spectral Imaging"
-        style={{
-          width: 200,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }}
-      />
+      <img src="logo.png" alt="Applied Spectral Imaging"
+           style={{ width: 200, position: 'absolute', top: 0, left: 0 }} />
 
-      {/* Settings Gear */}
-      <FiSettings
-        size={28}
+      {/* Toast (top-right) — non-blocking, auto-clears */}
+      {toast && ( // ADDED
+        <div style={{
+          position: 'absolute', top: 16, right: 16 + 140, // keep away from sync icon
+          background: '#333', color: '#fff',
+          padding: '8px 12px', borderRadius: 6, maxWidth: 320
+        }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Spin keyframes */}
+      <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
+
+      {/* Manual Sync Icon (disabled when offline) */}
+      <div
+        title={offline ? 'Offline' : (syncing ? 'Syncing…' : 'Manual Sync')}
+        onClick={runManualSync}
         style={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          color: '#fff',
-          cursor: 'pointer'
+          position: 'absolute', top: 16, right: 16,
+          display: 'flex', alignItems: 'center', gap: 8,
+          cursor: (syncing || offline) ? 'not-allowed' : 'pointer',
+          opacity: offline ? 0.4 : (syncing ? 0.7 : 1),
+          userSelect: 'none'
         }}
-        onClick={() => setShowSettings(true)}
-      />
+        aria-disabled={(syncing || offline) ? 'true' : 'false'}
+      >
+        <FiRefreshCw
+          size={28}
+          style={{
+            color: '#fff',
+            animation: syncing ? 'spin 1s linear infinite' : 'none',
+            filter: offline ? 'grayscale(100%)' : 'none',
+          }}
+        />
+        <span style={{ fontSize: 12, color: '#fff' }}>
+          {offline ? 'Offline' : (syncMsg || 'Sync')}
+        </span>
+      </div>
 
       {/* Tile Grid */}
       <div style={{
@@ -97,73 +179,6 @@ export default function MainPage({ onNavigate, currentUser }) {
           </button>
         ))}
       </div>
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{
-            background: '#fff',
-            color: '#000',
-            padding: '1.5rem',
-            borderRadius: 8,
-            width: '90%',
-            maxWidth: 400,
-            boxSizing: 'border-box'
-          }}>
-            <h3 style={{ marginTop: 0 }}>Settings</h3>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: 4 }}>
-                API Endpoint:
-              </label>
-              <input
-                type="text"
-                value={apiEndpoint}
-                onChange={e => setApiEndpoint(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: 8,
-                  borderRadius: 4,
-                  border: '1px solid #ccc',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                onClick={() => setShowSettings(false)}
-                style={{
-                  padding: '6px 12px',
-                  background: '#e2e0e0',
-                  border: '1px solid #999',
-                  borderRadius: 4,
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveSettings}
-                style={{
-                  padding: '6px 12px',
-                  background: '#4caf50',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer'
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

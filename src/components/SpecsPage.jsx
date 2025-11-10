@@ -118,6 +118,18 @@ export default function SpecsPage({ onBack }) {
   const [boxes, setBoxes]   = useState(viewConfig[subTab]?.boxes?.slice() || ['', '', '']);
   const [imageModal, setImageModal] = useState(null);
 
+  useEffect(() => {
+    if (!imageModal) return;
+    const onKey = (e) => { if (e.key === 'Escape') setImageModal(null); };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [imageModal]);
+
   // Reset subTab and boxes when view changes
   useEffect(() => {
     const newSubTabs = Object.keys(specConfig[view] || {});
@@ -199,19 +211,31 @@ export default function SpecsPage({ onBack }) {
 
       {/* Image Modal Overlay */}
       {imageModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ backgroundColor: '#fff', padding: '1rem', borderRadius: 8, maxWidth: '90%', maxHeight: '90%', overflow: 'auto' }}>
+        <div
+          onClick={() => setImageModal(null)} 
+          style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999 
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()} 
+            style={{
+              backgroundColor: '#fff', padding: '1rem', borderRadius: 8,
+              maxWidth: '90%', maxHeight: '90%', overflow: 'auto'
+            }}
+          >
             <button
               onClick={() => setImageModal(null)}
               style={{ float: 'right', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}
+              aria-label="Close image"
             >
               ✖
             </button>
-            <img
-              src={imageModal}
-              alt="Enlarged spec diagram"
-              style={{ width: '100%', height: 'auto', borderRadius: 4 }}
-            />
+            {/* Optional tiny hint */}
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Click outside or press Esc to close.</div>
+            <img src={imageModal} alt="Enlarged spec diagram" style={{ width: '100%', height: 'auto', borderRadius: 4 }} />
           </div>
         </div>
       )}
