@@ -7,15 +7,16 @@ out/
 *.tmp
 .DS_Store
 
-# Python (if any)
-__pycache__/
-*.pyc
+# Keep models/ broadly ignored
+models/*
+
+# But allow subdirs and the specific types we want inside
+!models/**/
+!models/**/*.json
+!models/**/*.onnx
+!models/**/*.gguf
 
 # Your big assets
-LatLib/
-models/
-*.gguf
-*.onnx
 *.pdf
 *.zip
 *.mp4
