@@ -7,6 +7,9 @@ export default function LoginPage({ onLogin }) {
   const [password, setPassword]     = useState('');
   const [showPassword, setShowPwd]  = useState(false);
   const [error, setError]           = useState('');
+  const [pbIdentity, setPbIdentity] = useState(username);   // default to same username
+  const [pbPassword, setPbPassword] = useState('');
+
 
   // CHANGED: sync state comes from main process (single source of truth)
   const [sync, setSync]             = useState({ phase: 'idle', message: '' }); // CHANGED
@@ -29,16 +32,28 @@ export default function LoginPage({ onLogin }) {
   // CHANGED: block login while checking/syncing
   const isBlocked = sync.phase === 'checking' || sync.phase === 'syncing'; // CHANGED
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  if (isBlocked) return;
 
-    if (isBlocked) return; // CHANGED: do nothing while busy
+// 1) PB login first
+const pbRes = await window.api.pb.login({ identity: username, password });
+if (!pbRes?.ok) {
+  setError(pbRes?.message || 'Invalid username or password');
+  return;
+}
 
-    const user = await window.api.login({ username, password });
-    if (!user) setError('Invalid username or password');
-    else onLogin(user);
-  };
+// 2) Local login second (ensure local user exists / then log in)
+const user = await window.api.login({ username, password });
+if (!user) {
+  setError('Local login failed (user not found).'); // we’ll fix this with auto-provision below
+  return;
+}
+
+onLogin(user);
+};
+
 
   return (
     <div style={{

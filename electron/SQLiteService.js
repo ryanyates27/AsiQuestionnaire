@@ -1,14 +1,29 @@
-// electron/SQLiteService.js
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import {app} from 'electron';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const dbPath     = path.join(__dirname, 'questions.db');
 
-// Open (or create) the database file
+// CHANGED: decide where the DB should live
+const isPackaged = app.isPackaged;
+
+// In packaged builds, keep the DB in userData (AppData\Roaming\QuestionnaireApp)
+// In dev, keep using the local questions.db next to this file.
+let dbPath;
+if (isPackaged) {
+  const userDataDir = app.getPath('userData');              // e.g. C:\Users\Ryan\AppData\Roaming\QuestionnaireApp
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+  }
+  dbPath = path.join(userDataDir, 'questions.db');          // NEW location for packaged app
+} else {
+  dbPath = path.join(__dirname, 'questions.db');            // existing dev behavior
+}
+
+// Open (or create) the database file in the chosen location
 const db = new Database(dbPath);
 
 // === MIGRATION: schema introspection ===
@@ -174,9 +189,18 @@ export function searchAllFTS(query) {
 const userCount = db.prepare('SELECT COUNT(*) AS cnt FROM users;').get().cnt;
 if (userCount === 0) {
   const stmt = db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?);');
-  stmt.run('admin',  '12345', 'admin');
+  stmt.run('admin',  'admin12345', 'admin');
   stmt.run('normal', '23456', 'user');
 }
+
+// ADDED: migrate legacy admin password to match PocketBase (one-login UX)
+try {
+  const adminRow = db.prepare("SELECT username, password FROM users WHERE username = ?;").get("admin");
+  if (adminRow && adminRow.password !== "admin12345") {
+    db.prepare("UPDATE users SET password = ? WHERE username = ?;").run("admin12345", "admin");
+  }
+} catch {}
+
 
 // === VERIFY HELPER ===
 export function verifyUser(username, password) {
@@ -393,4 +417,3 @@ export function rebuildFTS() {
   `);
   return true;
 }
-
