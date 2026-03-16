@@ -9,6 +9,7 @@ import Fuse from "fuse.js";
 import PageWrapper from "./PageWrapper";
 import * as pdfjsLib from "pdfjs-dist/build/pdf";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { FiUploadCloud} from 'react-icons/fi';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -504,8 +505,21 @@ export default function QuestionnaireArchivePage({ onBack }) {
               onClick={onPublish}
               disabled={publishing}
               title="Upload local PDFs to the server so other machines can sync them"
-              style={{ padding: "8px 12px" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                background: publishing ? "#9db2d6" : "#4377ff",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: publishing ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap",
+              }}
             >
+
+              <FiUploadCloud />
               {publishing ? "Publishing…" : "Publish to Server"}
             </button>
 

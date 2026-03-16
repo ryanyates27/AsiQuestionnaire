@@ -193,10 +193,12 @@ if (userCount === 0) {
   stmt.run('normal', '23456', 'user');
 }
 
-// ADDED: migrate legacy admin password to match PocketBase (one-login UX)
+// ADDED: Ensure local admin exists and password matches PocketBase default (for initial login to work, then can change password locally or via PB)
 try {
   const adminRow = db.prepare("SELECT username, password FROM users WHERE username = ?;").get("admin");
-  if (adminRow && adminRow.password !== "admin12345") {
+  if (!adminRow) {
+    db.prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?);").run("admin", "admin12345", "admin");
+  } else if (adminRow.password !== "admin12345") {
     db.prepare("UPDATE users SET password = ? WHERE username = ?;").run("admin12345", "admin");
   }
 } catch {}

@@ -908,32 +908,27 @@ function createWindow() {
     win.loadURL("http://localhost:5173"); // unchanged for dev
   }
 
-  // ---------- Auth (LOCAL) ----------
+  // ---------- Auth ----------
   ipcMain.handle("login", async (_e, { username, password }) => {
+    const localUser = loginUser({ username, password });
+
+    // Always allow local credentials (offline-first).
+    if (localUser) return localUser;
+
     try {
       const pb = getPB();
 
-      // 1) PB auth (single source of truth)
       await pb.collection("users").authWithPassword(username, password);
 
       if (!pb.authStore?.isValid) {
         return null;
       }
 
-      // 2) Persist PB creds so publish/sync can reuse without re-login prompts
+      // Persist PB creds so publish/sync can reuse without re-login prompts.
       config = { ...config, pbIdentity: username, pbPassword: password };
       fs.writeFileSync(configPath, JSON.stringify(config), "utf-8");
 
-      // 3) Local SQLite session user
-      //    - If your local DB already has the same credentials, this returns your normal user object.
-      //    - If not, you can either (A) return a minimal user object, or (B) auto-provision.
-      const localUser = loginUser({ username, password });
-
-      // If local user exists, use it (keeps your current role logic)
-      if (localUser) return localUser;
-
-      // Fallback: allow app login based on PB, even if SQLite doesn't have the user
-      // (keeps UX working; you can later add "createLocalUser" if you want)
+      //Fallback: allow app login based on PB, even if SQLite doesn't have the user.
       return { username, role: "user", source: "pocketbase" };
     } catch (err) {
       console.error(

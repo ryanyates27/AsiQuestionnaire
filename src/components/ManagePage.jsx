@@ -1,7 +1,7 @@
 // src/components/ManagePage.jsx
 import React, { useEffect, useState, useMemo } from 'react';
 import PageWrapper from './PageWrapper';
-import { FiEdit, FiCheckSquare, FiSearch, FiUploadCloud, FiTrash2 } from 'react-icons/fi';
+import { FiEdit, FiCheckSquare, FiUploadCloud, FiTrash2 } from 'react-icons/fi';
 
 export default function ManagePage({ onBack }) {
   const [filterStatus, setFilterStatus] = useState('unapproved');
@@ -10,9 +10,6 @@ export default function ManagePage({ onBack }) {
   const [editingId, setEditing]         = useState(null);
   const [editVals, setEditVals]         = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
-
-  const [similarFor, setSimilarFor]     = useState(null);
-  const [similarList, setSimilarList]   = useState([]);
 
   const [publishing, setPublishing]     = useState(false);
   const [publishMsg, setPublishMsg]     = useState('');
@@ -53,12 +50,6 @@ export default function ManagePage({ onBack }) {
     })();
     return () => { try { typeof unsub === 'function' && unsub(); } catch {} };
   }, []);
-
-  const showSimilar = async item => {
-    const list = await window.api.findSimilarApproved({ text: item.question, max: 10 });
-    setSimilarFor(item);
-    setSimilarList(list);
-  };
 
   const startEdit = item => { setEditing(item.id); setEditVals({ ...item }); };
   const cancelEdit = () => { setEditing(null); setEditVals({}); };
@@ -327,20 +318,20 @@ export default function ManagePage({ onBack }) {
                 {Object.entries(subs).map(([sub, items]) => (
                   <React.Fragment key={sub}>
                     <tr>
-                      <td style={{ background: '#ccc', padding: 6, fontWeight: 'bold' }} />
                       <td
+                        colSpan={5}
                         style={{
                           background: '#ccc',
                           padding: 6,
                           fontWeight: 'bold',
                           position: 'sticky',
                           top: 36,
-                          zIndex: 1
+                          zIndex: 1,
+                          boxShadow: '0 1px 0 rgba(0,0,0,0.08)'
                         }}
                       >
                         {sub}
                       </td>
-                      <td colSpan={3} style={{ background: '#ccc' }} />
                     </tr>
                     {items.map(item => (
                       <tr key={item.id}>
@@ -379,21 +370,14 @@ export default function ManagePage({ onBack }) {
                           }
                         </td>
 
-                        {/* Find Similar + Approve */}
+                        {/* Approve */}
                         <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
                           {item.approved === 0 && editingId !== item.id && (
-                            <>
-                              <FiSearch
-                                size={18}
-                                style={{ cursor: 'pointer', marginRight: 8 }}
-                                onClick={() => showSimilar(item)}
-                              />
-                              <FiCheckSquare
-                                size={18}
-                                style={{ cursor: 'pointer', color: 'green' }}
-                                onClick={() => handleApprove(item.id)}
-                              />
-                            </>
+                            <FiCheckSquare
+                              size={18}
+                              style={{ cursor: 'pointer', color: 'green' }}
+                              onClick={() => handleApprove(item.id)}
+                            />
                           )}
                         </td>
 
@@ -417,34 +401,6 @@ export default function ManagePage({ onBack }) {
           </table>
         </div>
       </PageWrapper>
-
-      {/* Similar-items Modal */}
-      {similarFor && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{ background: '#fff', padding: 16, borderRadius: 8, width: '90%', maxWidth: 500 }}>
-            <h4>Similar approved Q&As to:</h4>
-            <p style={{ fontStyle: 'italic' }}>"{similarFor.question}"</p>
-            <ul>
-              {similarList.map(s => (
-                <li key={s.id} style={{ marginBottom: 12 }}>
-                  <strong>Q:</strong> {s.question}<br/>
-                  <strong>A:</strong> {s.answer}
-                </li>
-              ))}
-              {similarList.length === 0 && <li>No similar approved items found.</li>}
-            </ul>
-            <div style={{ textAlign: 'right' }}>
-              <button onClick={() => setSimilarFor(null)} style={{ padding: '6px 12px' }}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
