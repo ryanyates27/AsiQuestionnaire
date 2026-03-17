@@ -2,9 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 
+const SAVED_LOGIN_KEY = 'asiSavedLogin';
+
 export default function LoginPage({ onLogin }) {
   const [username, setUsername]     = useState('');
   const [password, setPassword]     = useState('');
+  const [rememberLogin, setRememberLogin] = useState(false);
   const [showPassword, setShowPwd]  = useState(false);
   const [error, setError]           = useState('');
 
@@ -27,6 +30,22 @@ export default function LoginPage({ onLogin }) {
     return () => unsub?.();
   }, []); // CHANGED
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SAVED_LOGIN_KEY);
+      if (!raw) return;
+
+      const saved = JSON.parse(raw);
+      if (saved?.username && saved?.password) {
+        setUsername(saved.username);
+        setPassword(saved.password);
+        setRememberLogin(true);
+      }
+    } catch {
+      window.localStorage.removeItem(SAVED_LOGIN_KEY);
+    }
+  }, []);
+
   // CHANGED: block login while checking/syncing
   const isBlocked = sync.phase === 'checking' || sync.phase === 'syncing'; // CHANGED
 
@@ -39,6 +58,15 @@ const user = await window.api.login({ username, password });
 if (!user) {
   setError('Invalid username or password'); 
   return;
+}
+
+if (rememberLogin) {
+  window.localStorage.setItem(
+    SAVED_LOGIN_KEY,
+    JSON.stringify({ username, password })
+  );
+} else {
+  window.localStorage.removeItem(SAVED_LOGIN_KEY);
 }
 
 onLogin(user);
@@ -151,7 +179,16 @@ onLogin(user);
             {showPassword ? <FiEyeOff /> : <FiEye />}
           </div>
         </div>
-
+        
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1.5rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={rememberLogin}
+            onChange={e => setRememberLogin(e.target.checked)}
+          />
+          Remember login
+        </label>
+        
         <button
           type="submit"
           disabled={isBlocked} // CHANGED

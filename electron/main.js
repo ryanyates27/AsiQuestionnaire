@@ -122,6 +122,35 @@ function sameFileName(localName, pbStoredName) {
   return !!a && a === b;
 }
 
+function normalizeArchiveNameForCompare(nameOrPath) {
+  const raw = path.basename(String(nameOrPath || ""));
+  if (!raw) return "";
+
+  // local PB cache pattern: <site>__<year>__<pbId>__<originalName.ext>
+  const fromCache = raw.match(/^.+__\d{4}__[a-z0-9]+__(.+)$/i);
+  const candidate = fromCache ? fromCache[1] : raw;
+
+  const parsed = path.parse(candidate);
+  let base = (parsed.name || "").trim().toLowerCase();
+  let ext = (parsed.ext || "").trim().toLowerCase();
+
+  if (!ext) ext = ".pdf";
+
+  // legacy shape: "namepdf.pdf"
+  if (ext === ".pdf" && /pdf$/i.test(base)) {
+    base = base.replace(/pdf$/i, "");
+  }
+
+  return `${base}${ext}`;
+}
+
+function archiveFileDedupeKey({ siteName, year, fileNameOrPath }) {
+  const s = String(siteName || "").trim().toLowerCase();
+  const y = Number(year || 0) || 0;
+  const f = normalizeArchiveNameForCompare(fileNameOrPath);
+  return `${s}||${y}||${f}`;
+}
+
 // NEW: download all local PDFs for a site+year to a chosen folder
 ipcMain.handle("archive.downloadYear", async (event, { siteName, year }) => {
   const win = event?.sender?.getOwnerBrowserWindow?.() || null;
@@ -299,9 +328,19 @@ async function syncArchiveFromPocketBase({ silent = false } = {}) {
     .collection("questionnaire_archive")
     .getFullList({ sort: "-created", filter: "isDeleted = false" });
 
-  // Build a set of existing local paths to avoid duplicate INSERTs
+  // Build sets of existing local archive rows to avoid duplicate INSERTs
   const local = getAllArchiveEntries();
   const havePath = new Set(local.map((r) => (r.filePath || "").toLowerCase()));
+
+  const haveLogicalFile = new Set(
+    local.map((r) =>
+      archiveFileDedupeKey({
+        siteName: r.siteName,
+        year: r.year,
+        fileNameOrPath: r.filePath,
+      })
+    )
+  );
 
   let pulled = 0,
     added = 0,
@@ -314,22 +353,38 @@ async function syncArchiveFromPocketBase({ silent = false } = {}) {
     for (const storedName of files) {
       pulled++;
 
+            const normalizedSite = safeName(rec.siteName || "Site");
+      const normalizedYear = Number(rec.year || 0);
+      const logicalKey = archiveFileDedupeKey({
+        siteName: normalizedSite,
+        year: normalizedYear,
+        fileNameOrPath: pbOriginalFileName(storedName),
+      });
+
+      // Skip if local archive already has this site/year/file regardless of path.
+      if (haveLogicalFile.has(logicalKey)) {
+        skipped++;
+        continue;
+      }
+
       // Downloads/caches into your archive dir with pbId+filename in the name
       const localPath = await ensurePbArchiveCached(pb, rec, storedName);
 
       if (havePath.has(localPath.toLowerCase())) {
         skipped++;
+        haveLogicalFile.add(logicalKey);
         continue;
       }
 
       // Insert local row (1 row per file)
       insertArchiveEntry({
-        siteName: safeName(rec.siteName || "Site"),
-        year: Number(rec.year || 0),
+        siteName: normalizedSite,
+        year: normalizedYear,
         filePath: localPath,
       });
 
       havePath.add(localPath.toLowerCase());
+      haveLogicalFile.add(logicalKey);
       added++;
     }
   }
@@ -828,6 +883,11 @@ function safeName(str) {
   return str.replace(/[^a-z0-9-_ ]/gi, "").trim();
 }
 
+function safeExt(ext) {
+  const e = String(ext || "").toLowerCase();
+  return /^\.[a-z0-9]+$/i.test(e) ? e : "";
+}
+
 function pbGetFilesList(rec) {
   return Array.isArray(rec.files)
     ? rec.files
@@ -842,8 +902,18 @@ function pbCachePathFor(rec, storedFileName) {
   const cleanSite = safeName(rec.siteName || "Site");
   const year = Number(rec.year || 0) || 0;
   const pbId = rec.id || "unknown";
-  const cleanFile = safeName(pbOriginalFileName(storedFileName) || "file");
-  return path.join(dir, `${cleanSite}__${year}__${pbId}__${cleanFile}.pdf`);
+  const original = pbOriginalFileName(storedFileName) || "file.pdf";
+  const parsed = path.parse(original);
+  let cleanBase = safeName(parsed.name || "file") || "file";
+  const ext = safeExt(parsed.ext) || ".pdf";
+
+  // Some legacy names lose the dot before extension (e.g. "namepdf").
+  // If we had to default to .pdf, trim one trailing "pdf" token from base.
+  if (!parsed.ext && ext === ".pdf" && /pdf$/i.test(cleanBase)) {
+    cleanBase = cleanBase.replace(/pdf$/i, "") || "file";
+  }
+
+  return path.join(dir, `${cleanSite}__${year}__${pbId}__${cleanBase}${ext}`);
 }
 
 async function ensurePbArchiveCached(pb, rec, requestedFileName) {
@@ -866,6 +936,7 @@ async function ensurePbArchiveCached(pb, rec, requestedFileName) {
   fs.writeFileSync(dest, buf);
   return dest;
 }
+
 
 // ---------------------------
 // Browser window + IPC routes

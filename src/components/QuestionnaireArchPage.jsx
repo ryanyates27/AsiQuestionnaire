@@ -90,6 +90,32 @@ function basename(p) {
   return parts[parts.length - 1] || s;
 }
 
+function displayArchiveFileName(nameOrPath) {
+  const raw = basename(nameOrPath || "");
+  if (!raw) return "";
+
+  // PB cache pattern: <site>__<year>__<pbId>__<originalName.ext>
+  const fromCache = raw.match(/^.+__\d{4}__[a-z0-9]+__(.+)$/i);
+  const candidate = fromCache ? fromCache[1] : raw;
+
+  const parsed = /^(.*?)(\.[^.]+)?$/i.exec(candidate);
+  let base = (parsed?.[1] || candidate).trim();
+  let ext = (parsed?.[2] || "").trim();
+
+  // Fix legacy "...pdf.pdf" names by collapsing duplicate extension.
+  if (/^(\.[a-z0-9]+)\1$/i.test(ext)) {
+    ext = ext.slice(0, ext.length / 2);
+  }
+
+  // Fix legacy names where extension dot was dropped: "...pdf.pdf" -> "....pdf"
+  if (/\.pdf$/i.test(ext) && /pdf$/i.test(base)) {
+    base = base.replace(/pdf$/i, "") || base;
+  }
+
+  return `${base}${ext}`;
+}
+
+
 // -----------------------------------------------------------------------------
 // Main Component
 // -----------------------------------------------------------------------------
@@ -192,7 +218,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
         out[siteName][year].files.push({
           id: e.id,                     // local DB id
           filePath: e.filePath,
-          fileName: basename(e.filePath),
+          fileName: displayArchiveFileName(e.filePath),
         });
         continue;
       }
@@ -204,7 +230,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
           out[siteName][year].files.push({
             id: e.id,                   // PB record id
             pbFileName,                 // stored PB filename
-            fileName: pbFileName,       // UI label (can be prettified later)
+            fileName: displayArchiveFileName(pbFileName),  // display name (strips PB cache prefix)
           });
         }
         continue;
