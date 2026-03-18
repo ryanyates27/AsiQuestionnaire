@@ -1,5 +1,5 @@
 // src/components/ManagePage.jsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import PageWrapper from './PageWrapper';
 import { FiEdit, FiCheckSquare, FiUploadCloud, FiTrash2 } from 'react-icons/fi';
 
@@ -10,6 +10,13 @@ export default function ManagePage({ onBack }) {
   const [editingId, setEditing]         = useState(null);
   const [editVals, setEditVals]         = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [infoModal, setInfoModal]       = useState(null);
+  const [editingInfo, setEditingInfo]   = useState(false);
+  const [infoDraft, setInfoDraft]       = useState('');
+
+  const questionEditRef = useRef(null);
+  const answerEditRef = useRef(null);
+  const infoEditRef = useRef(null);
 
   const [publishing, setPublishing]     = useState(false);
   const [publishMsg, setPublishMsg]     = useState('');
@@ -29,6 +36,12 @@ export default function ManagePage({ onBack }) {
     if (ms) setTimeout(() => setToastMsg(''), ms);
   };
 
+  const autoResize = (el) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
   const refresh = async () => {
     const data = await window.api.getManageQuestions({ query, status: filterStatus });
     setResults(data);
@@ -36,6 +49,10 @@ export default function ManagePage({ onBack }) {
 
   useEffect(() => { refresh(); }, [query, filterStatus]);
   useEffect(() => { setSelectedIds(new Set()); }, [query, filterStatus]);
+
+  useEffect(() => { autoResize(questionEditRef.current); }, [editingId, editVals.question]);
+  useEffect(() => { autoResize(answerEditRef.current); }, [editingId, editVals.answer]);
+  useEffect(() => { if (editingInfo) autoResize(infoEditRef.current); }, [editingInfo, infoDraft]);
 
   useEffect(() => {
     let unsub;
@@ -55,6 +72,44 @@ export default function ManagePage({ onBack }) {
   const cancelEdit = () => { setEditing(null); setEditVals({}); };
   const saveEdit = async () => { await window.api.editQuestion(editVals); cancelEdit(); await refresh(); };
   const handleApprove = async id => { await window.api.approveQuestion(id); await refresh(); };
+
+   const openInfoModal = (item) => {
+    setInfoModal({ id: item.id, text: item.additionalInfo || '' });
+    setInfoDraft(item.additionalInfo || '');
+    setEditingInfo(false);
+  };
+
+  const closeInfoModal = () => {
+    setInfoModal(null);
+    setEditingInfo(false);
+    setInfoDraft('');
+  };
+
+  const cancelInfoEdit = () => {
+    setEditingInfo(false);
+    setInfoDraft(infoModal?.text || '');
+  };
+
+  const saveInfoEdit = async () => {
+    if (!infoModal) return;
+
+    const current = results.find(r => r.id === infoModal.id);
+    const payload = current
+      ? { ...current, additionalInfo: infoDraft }
+      : { id: infoModal.id, additionalInfo: infoDraft };
+
+    try {
+      await window.api.editQuestion(payload);
+      await refresh();
+      setInfoModal(prev => (prev ? { ...prev, text: infoDraft } : prev));
+      setEditingInfo(false);
+      showToast('Additional information updated.');
+    } catch (err) {
+      console.error('Failed to update additional information:', err);
+      showToast('Unable to save additional information.', 4000);
+    }
+  };
+
 
   const allVisibleIds = useMemo(() => results.map(r => r.id), [results]);
   const allSelected   = useMemo(
@@ -140,6 +195,8 @@ export default function ManagePage({ onBack }) {
       setPublishing(false);
     }
   };
+
+  const showUnapprovedLayout = filterStatus === 'unapproved';
 
   return (
     <>
@@ -292,16 +349,17 @@ export default function ManagePage({ onBack }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '4%' }} />
-              <col style={{ width: '43%' }} />
-              <col style={{ width: '40%' }} />
+              <col style={{ width: showUnapprovedLayout ? '41%' : '43%' }} />
+              <col style={{ width: showUnapprovedLayout ? '37%' : '40%' }} />
               <col style={{ width: '6%' }} />
+              {showUnapprovedLayout && <col style={{ width: '5%' }} />}
               <col style={{ width: '7%' }} />
             </colgroup>
             {Object.entries(grouped).map(([tag, subs]) => (
               <tbody key={tag}>
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={showUnapprovedLayout ? 6 : 5}
                     style={{
                       background: '#000',
                       color: '#fff',
@@ -319,7 +377,7 @@ export default function ManagePage({ onBack }) {
                   <React.Fragment key={sub}>
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={showUnapprovedLayout ? 6 : 5}
                         style={{
                           background: '#ccc',
                           padding: 6,
@@ -350,7 +408,8 @@ export default function ManagePage({ onBack }) {
                         <td style={{ border: '1px solid #999', padding: 6, whiteSpace: 'pre-wrap' }}>
                           {editingId === item.id
                             ? <textarea
-                                style={{ width: '100%', minHeight: 60, resize: 'vertical', boxSizing: 'border-box' }}
+                                style={{ width: '100%', minHeight: 60, resize: 'vertical', boxSizing: 'border-box', overflow: 'hidden' }}
+                                ref={questionEditRef}
                                 value={editVals.question}
                                 onChange={e => setEditVals(prev => ({ ...prev, question: e.target.value }))}
                               />
@@ -362,7 +421,8 @@ export default function ManagePage({ onBack }) {
                         <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center', whiteSpace: 'pre-wrap' }}>
                           {editingId === item.id
                             ? <textarea
-                                style={{ width: '100%', minHeight: 60, resize: 'vertical', boxSizing: 'border-box' }}
+                                style={{ width: '100%', minHeight: 60, resize: 'vertical', boxSizing: 'border-box', overflow: 'hidden' }}
+                                ref={answerEditRef}
                                 value={editVals.answer}
                                 onChange={e => setEditVals(prev => ({ ...prev, answer: e.target.value }))}
                               />
@@ -371,15 +431,42 @@ export default function ManagePage({ onBack }) {
                         </td>
 
                         {/* Approve */}
-                        <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
-                          {item.approved === 0 && editingId !== item.id && (
-                            <FiCheckSquare
-                              size={18}
-                              style={{ cursor: 'pointer', color: 'green' }}
-                              onClick={() => handleApprove(item.id)}
-                            />
-                          )}
-                        </td>
+                       {showUnapprovedLayout ? (
+                          <>
+                            <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
+                              {item.additionalInfo && (
+                                <button
+                                  onClick={() => openInfoModal(item)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+                                  aria-label="Show additional information"
+                                >
+                                  ℹ️
+                                </button>
+                              )}
+                            </td>
+                            <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
+                              {item.approved === 0 && editingId !== item.id && (
+                                <FiCheckSquare
+                                  size={18}
+                                  style={{ cursor: 'pointer', color: 'green' }}
+                                  onClick={() => handleApprove(item.id)}
+                                />
+                              )}
+                            </td>
+                          </>
+                        ) : (
+                          <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
+                            {item.additionalInfo && (
+                              <button
+                                onClick={() => openInfoModal(item)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+                                aria-label="Show additional information"
+                              >
+                                ℹ️
+                              </button>
+                            )}
+                          </td>
+                        )}
 
                         {/* Edit / Save */}
                         <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
@@ -400,6 +487,81 @@ export default function ManagePage({ onBack }) {
             ))}
           </table>
         </div>
+
+         {infoModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#fff',
+                color: '#000',
+                padding: '1rem',
+                borderRadius: 8,
+                width: 'min(900px, 80vw)',
+                maxWidth: '80%',
+                maxHeight: '70%',
+                overflow: 'auto',
+                boxSizing: 'border-box'
+              }}
+            >
+              <button
+                onClick={closeInfoModal}
+                style={{
+                  float: 'right',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ✖
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>Additional Information</h3>
+                {!editingInfo && (
+                  <button
+                    onClick={() => setEditingInfo(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex' }}
+                    aria-label="Edit additional information"
+                    title="Edit additional information"
+                  >
+                    <FiEdit size={16} />
+                  </button>
+                )}
+              </div>
+
+              {editingInfo ? (
+                <>
+                  <textarea
+                    value={infoDraft}
+                    onChange={e => setInfoDraft(e.target.value)}
+                    style={{ width: '100%', minHeight: 140, resize: 'vertical', boxSizing: 'border-box', overflow: 'hidden', display: 'block' }}
+                    ref={infoEditRef}
+                  />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <button onClick={saveInfoEdit}>Save</button>
+                    <button onClick={cancelInfoEdit}>Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <p style={{ whiteSpace: 'pre-wrap', width: '100%', boxSizing: 'border-box' }}>{infoModal.text}</p>
+              )}
+            </div>
+          </div>
+        )}
+
       </PageWrapper>
     </>
   );
