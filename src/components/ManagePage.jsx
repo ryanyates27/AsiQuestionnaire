@@ -3,6 +3,13 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import PageWrapper from './PageWrapper';
 import { FiEdit, FiCheckSquare, FiUploadCloud, FiTrash2 } from 'react-icons/fi';
 
+const subtypeOptions = {
+  Database: ['Logs', 'Transfers', 'Backups', 'Fill Later'],
+  Business: ['Assessment', 'Employee', 'Procedures', 'Security'],
+  Software: ['Patches', 'Logs', 'Access', 'Connectivity'],
+  System: ['Security', 'Design', 'Logs', 'Users'],
+};
+
 export default function ManagePage({ onBack }) {
   const [filterStatus, setFilterStatus] = useState('unapproved');
   const [query, setQuery]               = useState('');
@@ -13,6 +20,8 @@ export default function ManagePage({ onBack }) {
   const [infoModal, setInfoModal]       = useState(null);
   const [editingInfo, setEditingInfo]   = useState(false);
   const [infoDraft, setInfoDraft]       = useState('');
+  const [tagModal, setTagModal]         = useState(null);
+  const [tagDraft, setTagDraft]         = useState({ tag: 'Database', subtag: '' });
 
   const questionEditRef = useRef(null);
   const answerEditRef = useRef(null);
@@ -28,6 +37,9 @@ export default function ManagePage({ onBack }) {
   const [syncPhase, setSyncPhase]       = useState('idle');
   const offline = syncPhase === 'offline';
   const canPublish = !publishing && !offline;
+    const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1440
+  );
 
   // ADDED: small toast for non-blocking feedback
   const [toastMsg, setToastMsg] = useState('');
@@ -68,10 +80,57 @@ export default function ManagePage({ onBack }) {
     return () => { try { typeof unsub === 'function' && unsub(); } catch {} };
   }, []);
 
+    useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const startEdit = item => { setEditing(item.id); setEditVals({ ...item }); };
   const cancelEdit = () => { setEditing(null); setEditVals({}); };
   const saveEdit = async () => { await window.api.editQuestion(editVals); cancelEdit(); await refresh(); };
   const handleApprove = async id => { await window.api.approveQuestion(id); await refresh(); };
+
+   const openTagModal = (item) => {
+    const tag = subtypeOptions[item.tag] ? item.tag : 'Database';
+    const subtag = subtypeOptions[tag]?.includes(item.subtag)
+      ? item.subtag
+      : (subtypeOptions[tag]?.[0] || '');
+    setTagDraft({ tag, subtag });
+    setTagModal({ id: item.id, question: item.question });
+  };
+
+  const closeTagModal = () => {
+    setTagModal(null);
+    setTagDraft({ tag: 'Database', subtag: '' });
+  };
+
+  const handleTagTypeChange = (tag) => {
+    setTagDraft({
+      tag,
+      subtag: subtypeOptions[tag]?.[0] || ''
+    });
+  };
+
+  const saveTagEdit = async () => {
+    if (!tagModal) return;
+    const current = results.find(r => r.id === tagModal.id);
+    const payload = current
+      ? { ...current, tag: tagDraft.tag, subtag: tagDraft.subtag }
+      : { id: tagModal.id, tag: tagDraft.tag, subtag: tagDraft.subtag };
+    try {
+      await window.api.editQuestion(payload);
+      if (editingId === tagModal.id) {
+        setEditVals(prev => ({ ...prev, tag: tagDraft.tag, subtag: tagDraft.subtag }));
+      }
+      await refresh();
+      closeTagModal();
+      showToast('Tag/Subtag updated.');
+    } catch (err) {
+      console.error('Failed to update tag/subtag:', err);
+      showToast('Unable to save tag/subtag.', 4000);
+    }
+  };
 
    const openInfoModal = (item) => {
     setInfoModal({ id: item.id, text: item.additionalInfo || '' });
@@ -197,6 +256,17 @@ export default function ManagePage({ onBack }) {
   };
 
   const showUnapprovedLayout = filterStatus === 'unapproved';
+  const showApprovedTagColumn = !showUnapprovedLayout && editingId !== null;
+  const compactColumns = windowWidth < 1280;
+
+  const questionColWidth = showUnapprovedLayout
+    ? (compactColumns ? '37%' : '41%')
+    : (showApprovedTagColumn ? (compactColumns ? '34%' : '38%') : (compactColumns ? '39%' : '43%'));
+
+  const answerColWidth = showUnapprovedLayout
+    ? (compactColumns ? '33%' : '37%')
+    : (showApprovedTagColumn ? (compactColumns ? '30%' : '34%') : (compactColumns ? '36%' : '40%'));
+
 
   return (
     <>
@@ -232,7 +302,7 @@ export default function ManagePage({ onBack }) {
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
-            {/* CHANGED: Select All (visible) */}
+            {/* Select All */}
             <label style={{ marginLeft: 12, userSelect: 'none' }}>
               <input
                 type="checkbox"
@@ -348,18 +418,19 @@ export default function ManagePage({ onBack }) {
           {/* Questions Table */}
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <colgroup>
+              <col style={{ width: '4%' }} /> {/* Checkbox column */}
+              <col style={{ width: questionColWidth }} />
+              <col style={{ width: answerColWidth }} />
               <col style={{ width: '4%' }} />
-              <col style={{ width: showUnapprovedLayout ? '41%' : '43%' }} />
-              <col style={{ width: showUnapprovedLayout ? '37%' : '40%' }} />
-              <col style={{ width: '6%' }} />
               {showUnapprovedLayout && <col style={{ width: '5%' }} />}
-              <col style={{ width: '7%' }} />
+              {showApprovedTagColumn && <col style={{ width: '5%' }} />}
+              <col style={{ width: '3%' }} />
             </colgroup>
             {Object.entries(grouped).map(([tag, subs]) => (
               <tbody key={tag}>
                 <tr>
                   <td
-                    colSpan={showUnapprovedLayout ? 6 : 5}
+                    colSpan={showUnapprovedLayout ? 6 : (showApprovedTagColumn ? 6 : 5)}
                     style={{
                       background: '#000',
                       color: '#fff',
@@ -377,7 +448,7 @@ export default function ManagePage({ onBack }) {
                   <React.Fragment key={sub}>
                     <tr>
                       <td
-                        colSpan={showUnapprovedLayout ? 6 : 5}
+                        colSpan={showUnapprovedLayout ? 6 : (showApprovedTagColumn ? 6 : 5)}
                         style={{
                           background: '#ccc',
                           padding: 6,
@@ -445,12 +516,28 @@ export default function ManagePage({ onBack }) {
                               )}
                             </td>
                             <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
-                              {item.approved === 0 && editingId !== item.id && (
-                                <FiCheckSquare
-                                  size={18}
-                                  style={{ cursor: 'pointer', color: 'green' }}
-                                  onClick={() => handleApprove(item.id)}
-                                />
+                               {item.approved === 0 && (
+                                editingId === item.id ? (
+                                  <button
+                                    onClick={() => openTagModal(item)}
+                                    style={{
+                                      border: '1px solid #888',
+                                      background: '#f2f2f2',
+                                      borderRadius: 4,
+                                      padding: '4px 8px',
+                                      cursor: 'pointer',
+                                      fontSize: 12
+                                    }}
+                                  >
+                                    Change Tag
+                                  </button>
+                                ) : (
+                                  <FiCheckSquare
+                                    size={18}
+                                    style={{ cursor: 'pointer', color: 'green' }}
+                                    onClick={() => handleApprove(item.id)}
+                                  />
+                                )
                               )}
                             </td>
                           </>
@@ -463,6 +550,26 @@ export default function ManagePage({ onBack }) {
                                 aria-label="Show additional information"
                               >
                                 ℹ️
+                              </button>
+                            )}
+                          </td>
+                        )}
+
+                        {!showUnapprovedLayout && showApprovedTagColumn && (
+                          <td style={{ border: '1px solid #999', padding: 6, textAlign: 'center' }}>
+                            {editingId === item.id && (
+                              <button
+                                onClick={() => openTagModal(item)}
+                                style={{
+                                  border: '1px solid #888',
+                                  background: '#f2f2f2',
+                                  borderRadius: 4,
+                                  padding: '4px 8px',
+                                  cursor: 'pointer',
+                                  fontSize: 12
+                                }}
+                              >
+                                Change Tag
                               </button>
                             )}
                           </td>
@@ -560,6 +667,96 @@ export default function ManagePage({ onBack }) {
               ) : (
                 <p style={{ whiteSpace: 'pre-wrap', width: '100%', boxSizing: 'border-box' }}>{infoModal.text}</p>
               )}
+            </div>
+          </div>
+        )}
+
+          {tagModal && (
+          <div
+            onClick={closeTagModal}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: '#fff',
+                color: '#000',
+                padding: '1rem',
+                borderRadius: 8,
+                width: 'min(720px, 80vw)',
+                maxWidth: '80%',
+                maxHeight: '70%',
+                overflow: 'auto',
+                boxSizing: 'border-box'
+              }}
+            >
+              <button
+                onClick={closeTagModal}
+                style={{
+                  float: 'right',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ✖
+              </button>
+              <h3 style={{ marginTop: 0 }}>Update Tag / Subtag</h3>
+              <p style={{ marginTop: 0, color: '#444' }}>
+                {tagModal.question}
+              </p>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
+                <div style={{ border: '1px solid #ccc', padding: '0.75rem', borderRadius: 4, minWidth: 180 }}>
+                  <strong>Type:</strong>
+                  {Object.keys(subtypeOptions).map(opt => (
+                    <label key={opt} style={{ display: 'block', margin: '0.25rem 0' }}>
+                      <input
+                        type="radio"
+                        name="manage-type"
+                        value={opt}
+                        checked={tagDraft.tag === opt}
+                        onChange={() => handleTagTypeChange(opt)}
+                        style={{ marginRight: 4 }}
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ border: '1px solid #ccc', padding: '0.75rem', borderRadius: 4, minWidth: 180 }}>
+                  <strong>Subtype:</strong>
+                  {(subtypeOptions[tagDraft.tag] || []).map(sub => (
+                    <label key={sub} style={{ display: 'block', margin: '0.25rem 0' }}>
+                      <input
+                        type="radio"
+                        name="manage-subtype"
+                        value={sub}
+                        checked={tagDraft.subtag === sub}
+                        onChange={() => setTagDraft(prev => ({ ...prev, subtag: sub }))}
+                        style={{ marginRight: 4 }}
+                      />
+                      {sub}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button onClick={saveTagEdit}>Save</button>
+                <button onClick={closeTagModal}>Cancel</button>
+              </div>
             </div>
           </div>
         )}
