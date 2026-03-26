@@ -240,7 +240,7 @@ export default function ManagePage({ onBack }) {
                 onChange={toggleSelectAll}
                 style={{ marginRight: 6 }}
               />
-              Select all (visible)
+              Select all
             </label>
           </div>
 
@@ -490,6 +490,7 @@ export default function ManagePage({ onBack }) {
 
          {infoModal && (
           <div
+          onClick={closeInfoModal}
             style={{
               position: 'fixed',
               top: 0,
@@ -504,6 +505,7 @@ export default function ManagePage({ onBack }) {
             }}
           >
             <div
+              onClick={(e) => e.stopPropagation()}
               style={{
                 backgroundColor: '#fff',
                 color: '#000',

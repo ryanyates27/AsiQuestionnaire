@@ -9,7 +9,7 @@ import Fuse from "fuse.js";
 import PageWrapper from "./PageWrapper";
 import * as pdfjsLib from "pdfjs-dist/build/pdf";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { FiUploadCloud} from 'react-icons/fi';
+import { FiUploadCloud } from "react-icons/fi";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -78,9 +78,7 @@ function PDFCanvasViewer({ dataUrl }) {
 // Helpers
 // -----------------------------------------------------------------------------
 function isPdfFile(file) {
-  return (
-    file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "")
-  );
+  return file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
 }
 
 function basename(p) {
@@ -114,7 +112,6 @@ function displayArchiveFileName(nameOrPath) {
 
   return `${base}${ext}`;
 }
-
 
 // -----------------------------------------------------------------------------
 // Main Component
@@ -159,11 +156,11 @@ export default function QuestionnaireArchivePage({ onBack }) {
           `Publish finished with issues. Created: ${res.created}, Updated: ${res.updated}, Skipped: ${res.skipped}, Failed: ${res.failed}` +
             (first
               ? ` | First error: ${first.status || ""} ${first.message || ""}`
-              : "")
+              : ""),
         );
       } else {
         setPublishMsg(
-          `Published. Created: ${res.created}, Updated: ${res.updated}, Skipped: ${res.skipped}.`
+          `Published. Created: ${res.created}, Updated: ${res.updated}, Skipped: ${res.skipped}.`,
         );
       }
     } catch (e) {
@@ -192,12 +189,12 @@ export default function QuestionnaireArchivePage({ onBack }) {
       Array.from(new Set(entries.map((e) => e.siteName))).map((name) => ({
         name,
       })),
-    [entries]
+    [entries],
   );
 
   const fuse = useMemo(
     () => new Fuse(sites, { keys: ["name"], threshold: 0.3 }),
-    [sites]
+    [sites],
   );
   const filteredSites = query ? fuse.search(query).map((r) => r.item) : sites;
 
@@ -211,12 +208,13 @@ export default function QuestionnaireArchivePage({ onBack }) {
       const year = Number(e.year || 0);
 
       if (!out[siteName]) out[siteName] = {};
-      if (!out[siteName][year]) out[siteName][year] = { siteName, year, files: [] };
+      if (!out[siteName][year])
+        out[siteName][year] = { siteName, year, files: [] };
 
       // Local row case
       if (e.filePath) {
         out[siteName][year].files.push({
-          id: e.id,                     // local DB id
+          id: e.id, // local DB id
           filePath: e.filePath,
           fileName: displayArchiveFileName(e.filePath),
         });
@@ -228,9 +226,9 @@ export default function QuestionnaireArchivePage({ onBack }) {
       if (Array.isArray(e.files) && e.files.length) {
         for (const pbFileName of e.files) {
           out[siteName][year].files.push({
-            id: e.id,                   // PB record id
-            pbFileName,                 // stored PB filename
-            fileName: displayArchiveFileName(pbFileName),  // display name (strips PB cache prefix)
+            id: e.id, // PB record id
+            pbFileName, // stored PB filename
+            fileName: displayArchiveFileName(pbFileName), // display name (strips PB cache prefix)
           });
         }
         continue;
@@ -249,7 +247,9 @@ export default function QuestionnaireArchivePage({ onBack }) {
     // sort files by name
     for (const s of Object.keys(out)) {
       for (const y of Object.keys(out[s])) {
-        out[s][y].files.sort((a, b) => (a.fileName || "").localeCompare(b.fileName || ""));
+        out[s][y].files.sort((a, b) =>
+          (a.fileName || "").localeCompare(b.fileName || ""),
+        );
       }
     }
 
@@ -342,7 +342,10 @@ export default function QuestionnaireArchivePage({ onBack }) {
   useEffect(() => {
     if (!showCreate) return;
     const onKey = (e) => {
-      if (e.key === "Escape") setShowCreate(false);
+      if (e.key === "Escape") {
+        setShowCreate(false);
+        resetForm();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -376,6 +379,11 @@ export default function QuestionnaireArchivePage({ onBack }) {
         setSelected((prev) => ({ ...prev, previewHref: r.href }));
       }
     } catch {}
+  };
+
+  const closePreview = () => {
+    setPreviewing(false);
+    setSelected(null);
   };
 
   const handleOpenFull = () => {
@@ -415,7 +423,9 @@ export default function QuestionnaireArchivePage({ onBack }) {
 
   // NEW: Delete year (all files)
   const handleDeleteYear = async (siteName, year) => {
-    const ok = window.confirm(`Delete "${siteName} - ${year}" and ALL PDFs for that year?`);
+    const ok = window.confirm(
+      `Delete "${siteName} - ${year}" and ALL PDFs for that year?`,
+    );
     if (!ok) return;
 
     try {
@@ -424,7 +434,9 @@ export default function QuestionnaireArchivePage({ onBack }) {
 
       // remove matching local rows from UI (PB mode will refresh on reload)
       setEntries((prev) =>
-        prev.filter((e) => !(e.siteName === siteName && Number(e.year) === Number(year)))
+        prev.filter(
+          (e) => !(e.siteName === siteName && Number(e.year) === Number(year)),
+        ),
       );
 
       // collapse panel if it was open
@@ -445,7 +457,9 @@ export default function QuestionnaireArchivePage({ onBack }) {
     if (!selected?.file) return;
 
     const label = selected?.file?.fileName || "PDF";
-    const ok = window.confirm(`Delete "${selected.siteName} - ${selected.year}" file "${label}"?`);
+    const ok = window.confirm(
+      `Delete "${selected.siteName} - ${selected.year}" file "${label}"?`,
+    );
     if (!ok) return;
 
     try {
@@ -453,9 +467,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
 
       // remove from entries list
       setEntries((prev) => prev.filter((e) => e.id !== selected.file.id));
-
-      setPreviewing(false);
-      setSelected(null);
+      closePreview();
       showToast("File deleted.");
     } catch (e) {
       console.error("Delete failed", e);
@@ -467,8 +479,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
     if (!previewing) return;
     const onKey = (e) => {
       if (e.key === "Escape") {
-        setPreviewing(false);
-        setSelected(null);
+        closePreview();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -544,7 +555,6 @@ export default function QuestionnaireArchivePage({ onBack }) {
                 whiteSpace: "nowrap",
               }}
             >
-
               <FiUploadCloud />
               {publishing ? "Publishing…" : "Publish to Server"}
             </button>
@@ -639,97 +649,105 @@ export default function QuestionnaireArchivePage({ onBack }) {
               </div>
 
               {/* expanded year panel */}
-              {expanded?.siteName === site.name &&
-                siteYears[expanded.year] && (
+              {expanded?.siteName === site.name && siteYears[expanded.year] && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                  }}
+                >
                   <div
                     style={{
-                      marginTop: 10,
-                      border: "1px solid #ddd",
-                      background: "#fff",
-                      borderRadius: 8,
-                      overflow: "hidden",
+                      padding: "10px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      borderBottom: "1px solid #eee",
                     }}
                   >
-                    <div
+                    <div style={{ fontWeight: 600, flex: 1 }}>
+                      {site.name} • {expanded.year}
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        handleDownloadAllYear(site.name, expanded.year)
+                      }
+                      style={{ padding: "6px 10px" }}
+                    >
+                      Download All
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteYear(site.name, expanded.year)}
                       style={{
-                        padding: "10px 12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        borderBottom: "1px solid #eee",
+                        padding: "6px 10px",
+                        background: "#ffe9e9",
+                        border: "1px solid #f2b3b3",
                       }}
                     >
-                      <div style={{ fontWeight: 600, flex: 1 }}>
-                        {site.name} • {expanded.year}
-                      </div>
+                      Delete Year
+                    </button>
+                  </div>
 
+                  <div
+                    style={{
+                      padding: 10,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    {(siteYears[expanded.year]?.files || []).map((f) => (
                       <button
+                        key={`${f.id}-${f.fileName || f.pbFileName || "file"}`}
                         onClick={() =>
-                          handleDownloadAllYear(site.name, expanded.year)
+                          handlePreviewFile(site.name, expanded.year, f)
                         }
-                        style={{ padding: "6px 10px" }}
-                      >
-                        Download All
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteYear(site.name, expanded.year)}
                         style={{
-                          padding: "6px 10px",
-                          background: "#ffe9e9",
-                          border: "1px solid #f2b3b3",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: "1px solid #eee",
+                          background: "#fafafa",
+                          cursor: "pointer",
+                          textAlign: "left",
                         }}
+                        title="Preview PDF"
                       >
-                        Delete Year
-                      </button>
-                    </div>
-
-                    <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {(siteYears[expanded.year]?.files || []).map((f) => (
-                        <button
-                          key={`${f.id}-${f.fileName || f.pbFileName || "file"}`}
-                          onClick={() => handlePreviewFile(site.name, expanded.year, f)}
+                        {/* generic file icon */}
+                        <div
                           style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: 6,
+                            background: "#e8e8e8",
                             display: "flex",
                             alignItems: "center",
-                            gap: 10,
-                            padding: "10px 12px",
-                            borderRadius: 8,
-                            border: "1px solid #eee",
-                            background: "#fafafa",
-                            cursor: "pointer",
-                            textAlign: "left",
+                            justifyContent: "center",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#444",
                           }}
-                          title="Preview PDF"
                         >
-                          {/* generic file icon */}
-                          <div
-                            style={{
-                              width: 26,
-                              height: 26,
-                              borderRadius: 6,
-                              background: "#e8e8e8",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: "#444",
-                            }}
-                          >
-                            PDF
-                          </div>
+                          PDF
+                        </div>
 
-                          <div style={{ flex: 1, color: "#222" }}>
-                            {f.fileName || f.pbFileName || "PDF"}
-                          </div>
+                        <div style={{ flex: 1, color: "#222" }}>
+                          {f.fileName || f.pbFileName || "PDF"}
+                        </div>
 
-                          <div style={{ opacity: 0.6 }}>›</div>
-                        </button>
-                      ))}
-                    </div>
+                        <div style={{ opacity: 0.6 }}>›</div>
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -738,6 +756,10 @@ export default function QuestionnaireArchivePage({ onBack }) {
       {/* Create Modal */}
       {showCreate && (
         <div
+          onClick={() => {
+            setShowCreate(false);
+            resetForm();
+          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -748,6 +770,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: "#fff",
               padding: "1rem",
@@ -842,7 +865,14 @@ export default function QuestionnaireArchivePage({ onBack }) {
               {!!form.files?.length && (
                 <div style={{ fontSize: "0.9rem", color: "#333" }}>
                   Selected:
-                  <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                    }}
+                  >
                     {form.files.map((f) => (
                       <div key={f.name}>
                         • <strong>{f.name}</strong>
@@ -879,6 +909,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
       {/* Preview Modal */}
       {previewing && selected && (
         <div
+          onClick={closePreview}
           style={{
             position: "fixed",
             inset: 0,
@@ -890,6 +921,7 @@ export default function QuestionnaireArchivePage({ onBack }) {
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: "#fff",
               width: "95%",
@@ -915,7 +947,10 @@ export default function QuestionnaireArchivePage({ onBack }) {
                 {selected.file?.fileName || selected.file?.pbFileName || "PDF"}
               </div>
 
-              <button onClick={handleDownloadOne} style={{ padding: "6px 10px" }}>
+              <button
+                onClick={handleDownloadOne}
+                style={{ padding: "6px 10px" }}
+              >
                 Download
               </button>
 

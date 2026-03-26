@@ -419,6 +419,7 @@ async function onAskAI(e) {
       {/* --- Modal: Additional Info --- */}
       {infoModal && (
         <div
+          onClick={() => setInfoModal(null)}
           style={{
             position: 'fixed',
             top: 0,
@@ -433,6 +434,7 @@ async function onAskAI(e) {
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: '#fff',
               color: '#000',
@@ -464,6 +466,7 @@ async function onAskAI(e) {
       {/* --- Modal: Ask AI --- */}
       {aiOpen && (
         <div
+          onClick={() => setAiOpen(false)}
           style={{
             position: 'fixed',
             top: 0,
@@ -478,6 +481,7 @@ async function onAskAI(e) {
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: '#fff',
               color: '#000',
