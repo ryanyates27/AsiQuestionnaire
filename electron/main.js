@@ -1795,6 +1795,7 @@ function createWindow() {
             ...c,
             question: c.question ?? local?.question ?? "",
             answer: c.answer ?? local?.answer ?? "",
+            additionalInfo: c.additionalInfo ?? local?.additionalInfo ?? "",
             score: c.score ?? c.similarity ?? null,
           };
         });
