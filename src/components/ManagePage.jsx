@@ -168,8 +168,13 @@ export default function ManagePage({ onBack }) {
   };
 
   const openInfoModal = (item) => {
-    setInfoModal({ id: item.id, text: item.additionalInfo || "" });
-    setInfoDraft(item.additionalInfo || "");
+    const baseInfo =
+      editingId === item.id
+        ? (editVals.additionalInfo ?? item.additionalInfo ?? "")
+        : (item.additionalInfo ?? "");
+    setInfoModal({ id: item.id, text: baseInfo });
+    setInfoDraft(baseInfo);
+    setEditingInfo(false);
     setEditingInfo(false);
   };
 
@@ -196,12 +201,43 @@ export default function ManagePage({ onBack }) {
       await window.api.editQuestion(payload);
       await refresh();
       setInfoModal((prev) => (prev ? { ...prev, text: infoDraft } : prev));
+            if (editingId === infoModal.id) {
+        setEditVals((prev) => ({ ...prev, additionalInfo: infoDraft }));
+      }
       setEditingInfo(false);
       showToast("Additional information updated.");
     } catch (err) {
       console.error("Failed to update additional information:", err);
       showToast("Unable to save additional information.", 4000);
     }
+  };
+
+  const renderAdditionalInfoButton = (item) => {
+    const hasAdditionalInfo = Boolean(item.additionalInfo?.trim());
+    const isEditingRow = editingId === item.id;
+
+    if (!hasAdditionalInfo && !isEditingRow) return null;
+
+    return (
+      <button
+        onClick={() => openInfoModal(item)}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 20,
+          color: hasAdditionalInfo ? "inherit" : "green",
+        }}
+        aria-label={
+          hasAdditionalInfo ? "Show additional information" : "Add additional information"
+        }
+        title={
+          hasAdditionalInfo ? "Show additional information" : "Add additional information"
+        }
+      >
+        {hasAdditionalInfo ? "ℹ️" : "➕"}
+      </button>
+    );
   };
 
   const allVisibleIds = useMemo(() => results.map((r) => r.id), [results]);
@@ -668,20 +704,7 @@ export default function ManagePage({ onBack }) {
                                 textAlign: "center",
                               }}
                             >
-                              {item.additionalInfo && (
-                                <button
-                                  onClick={() => openInfoModal(item)}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    fontSize: 20,
-                                  }}
-                                  aria-label="Show additional information"
-                                >
-                                  ℹ️
-                                </button>
-                              )}
+                             {renderAdditionalInfoButton(item)}
                             </td>
                             <td
                               style={{
@@ -730,20 +753,7 @@ export default function ManagePage({ onBack }) {
                               textAlign: "center",
                             }}
                           >
-                            {item.additionalInfo && (
-                              <button
-                                onClick={() => openInfoModal(item)}
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 20,
-                                }}
-                                aria-label="Show additional information"
-                              >
-                                ℹ️
-                              </button>
-                            )}
+                           {renderAdditionalInfoButton(item)}
                           </td>
                         )}
 
