@@ -62,6 +62,14 @@ export default function SearchPage({ onBack }) {
   // Which answer should be displayed in the modal: user-selected override or the AI's original
   const shownAnswer = aiOverrideAnswer ?? aiResp?.answer; // CHANGED
 
+const selectedCitation = aiResp?.citations?.[aiSelectedIdx] ?? null;
+  const confidencePct =
+    typeof selectedCitation?.score === "number"
+      ? selectedCitation.score * 100
+      : typeof aiResp?.confidence === "number"
+        ? aiResp.confidence * 100
+        : null;
+
   // --- Ask AI handler (REPLACED) ---
   async function onAskAI(e) {
     e?.preventDefault?.();
@@ -619,7 +627,7 @@ export default function SearchPage({ onBack }) {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <strong>Confidence:</strong>{" "}
-                  {aiResp.confidence?.toFixed?.(2) ?? "—"}
+                  {confidencePct != null ? `${confidencePct.toFixed(1)}%` : "—"}
                   {aiUseLLM && (
                     <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.7 }}>
                       (LLM rewrite)
